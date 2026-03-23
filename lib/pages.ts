@@ -1,10 +1,11 @@
 import { runQuery } from './firestore-client'
+import type { Block } from './blocks'
 
 export type CmsPage = {
   id: string
   slug: string
   title: string
-  content: string
+  blocks: Block[]
   seoTitle?: string
   seoDesc?: string
 }
@@ -17,6 +18,16 @@ function str(val: unknown): string {
     return o.nl || o.en || o.fr || o.de || Object.values(o)[0] || ''
   }
   return ''
+}
+
+function getBlocks(val: unknown): Block[] {
+  if (!val || typeof val !== 'object') return []
+  const b = val as Record<string, unknown>
+  // blocks is stored as { nl: Block[], en: Block[], ... } — use nl first
+  const lang = b.nl || b.en || b.fr || b.de
+  if (Array.isArray(lang)) return lang as Block[]
+  if (Array.isArray(val)) return val as Block[]
+  return []
 }
 
 export async function getPageBySlug(domain: string, slug: string): Promise<CmsPage | null> {
@@ -32,9 +43,9 @@ export async function getPageBySlug(domain: string, slug: string): Promise<CmsPa
       id,
       slug: str(data.slug),
       title: str(data.title),
-      content: str(data.content),
-      seoTitle: str(data.seoTitle),
-      seoDesc: str(data.seoDesc),
+      blocks: getBlocks(data.blocks),
+      seoTitle: str(data.seo ? (data.seo as Record<string, unknown>).nl ? ((data.seo as Record<string, Record<string, string>>).nl?.metaTitle) : undefined : undefined) || str(data.seoTitle),
+      seoDesc: str(data.seo ? (data.seo as Record<string, unknown>).nl ? ((data.seo as Record<string, Record<string, string>>).nl?.metaDescription) : undefined : undefined) || str(data.seoDesc),
     }
   } catch (e) {
     console.error('[pages] getPageBySlug error:', e)
